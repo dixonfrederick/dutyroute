@@ -41,6 +41,10 @@ select:focus-visible {
   outline: 3px solid #b45a16;
   outline-offset: 3px;
 }
+[role="tabpanel"]:focus-visible {
+  outline: 3px solid #b45a16;
+  outline-offset: 3px;
+}
 button {
   border: 1px solid #c4ceca;
   background: #fff;
@@ -98,15 +102,6 @@ small {
 .wordmark > span:first-child {
   font-weight: 350;
 }
-.brand-rule {
-  display: block;
-  width: 24px;
-  height: 20px;
-  margin-left: 12px;
-  border-left: 3px solid #e39a5d;
-  border-bottom: 3px solid #e39a5d;
-  transform: translateY(-4px);
-}
 .header-detail {
   border-left: 1px solid #68898a;
   padding-left: 26px;
@@ -121,25 +116,22 @@ small {
 main {
   max-width: 1480px;
   margin: auto;
-  padding: 35px 4% 0;
+  padding: 24px 4% 0;
 }
 .workspace-title {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 28px;
+  margin-bottom: 20px;
 }
-.eyebrow {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 1.2px;
-  font-weight: 700;
+.log-caption {
+  font-size: 12px;
   color: #536360;
 }
 h1 {
-  font-size: 36px;
-  letter-spacing: -1.1px;
-  margin: 6px 0 0;
+  font-size: 28px;
+  letter-spacing: -0.5px;
+  margin: 0;
   font-weight: 650;
 }
 h2 {
@@ -152,10 +144,6 @@ h3 {
 }
 h4 {
   margin: 18px 0 8px;
-}
-.workspace-title > p {
-  font-size: 14px;
-  color: #536360;
 }
 .workspace {
   display: grid;
@@ -348,11 +336,23 @@ summary {
   background: #e7eee9;
   z-index: 0;
 }
+.map path[role="button"]:focus-visible {
+  outline: none;
+  stroke: #123f40;
+  stroke-width: 5px;
+}
+.map .leaflet-control-attribution {
+  background: #fff;
+}
+.map .leaflet-control-attribution a {
+  color: #185d60;
+}
 .empty-state {
-  padding: 27px 30px;
+  padding: 22px 24px;
 }
 .empty-state h3 {
-  font-size: 23px;
+  font-size: 18px;
+  margin: 0 0 8px;
 }
 .empty-state p {
   font-size: 13px;
@@ -424,8 +424,7 @@ summary {
   margin-bottom: 22px;
 }
 .results-heading h2 {
-  font-size: 25px;
-  margin-top: 6px;
+  font-size: 23px;
 }
 .export-buttons {
   display: flex;
@@ -473,6 +472,11 @@ summary {
   border-radius: 7px;
   overflow: hidden;
 }
+.schedule-help {
+  font-size: 13px;
+  color: #536360;
+  margin: 0 0 14px;
+}
 .schedule-head,
 .event-row {
   display: grid;
@@ -483,9 +487,8 @@ summary {
   padding: 15px 24px;
 }
 .schedule-head {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.7px;
+  font-size: 12px;
+  font-weight: 600;
   color: #536360;
   background: #edf1ed;
 }
@@ -501,6 +504,9 @@ summary {
 .event-row.active {
   background: #edf3ef;
   box-shadow: inset 4px 0 #185d60;
+}
+.event-row:focus-visible {
+  outline-offset: -3px;
 }
 .event-row b {
   font-weight: 600;
@@ -718,9 +724,6 @@ footer a {
   .trip-summary b {
     font-size: 21px;
   }
-  .workspace-title > p {
-    display: none;
-  }
   .header-rule {
     font-size: 11px;
   }
@@ -759,7 +762,7 @@ footer a {
     padding: 24px 16px 0;
   }
   h1 {
-    font-size: 30px;
+    font-size: 26px;
   }
   .workspace {
     grid-template-columns: 1fr;
@@ -822,9 +825,6 @@ footer a {
   }
   .log-heading h3 {
     font-size: 19px;
-  }
-  .log-heading .eyebrow {
-    font-size: 9px;
   }
   .directions {
     padding: 18px;

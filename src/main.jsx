@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   MapContainer,
@@ -17,13 +17,16 @@ const example = [
   { label: "Indianapolis, Indiana", lat: 39.7684, lon: -86.1581 },
   { label: "Dallas, Texas", lat: 32.7767, lon: -96.797 },
 ];
+const resultTabs = [
+  ["schedule", "Stops & schedule"],
+  ["logs", "Daily log sheets"],
+  ["directions", "Route instructions"],
+];
 async function api(path, options) {
   const response = await fetch(path, options);
-  const data = await response
-    .json()
-    .catch(() => ({
-      error: "The server returned an unexpected response. Please try again.",
-    }));
+  const data = await response.json().catch(() => ({
+    error: "The server returned an unexpected response. Please try again.",
+  }));
   if (!response.ok)
     throw new Error(data.error || "Unable to complete this request.");
   return data;
@@ -127,6 +130,34 @@ function FitMap({ plan, active }) {
   }, [active, map]);
   return null;
 }
+function MapPoint({ label, children, ...props }) {
+  const markerRef = useRef(null);
+  useEffect(() => {
+    const marker = markerRef.current;
+    const element = marker.getElement();
+    element.setAttribute("tabindex", "0");
+    element.setAttribute("role", "button");
+    element.setAttribute("aria-label", label);
+    function onKeyDown(e) {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        e.stopPropagation();
+        marker.togglePopup();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        marker.closePopup();
+      }
+    }
+    element.addEventListener("keydown", onKeyDown);
+    return () => element.removeEventListener("keydown", onKeyDown);
+  }, [label]);
+  return (
+    <CircleMarker ref={markerRef} {...props}>
+      {children}
+    </CircleMarker>
+  );
+}
 function RouteMap({ plan, active }) {
   return (
     <MapContainer
@@ -143,12 +174,14 @@ function RouteMap({ plan, active }) {
       {plan && (
         <>
           <Polyline
+            interactive={false}
             positions={plan.route.geometry.map((p) => [p[1], p[0]])}
             pathOptions={{ color: "#185d60", weight: 5 }}
           />
           {plan.locations.map((p, i) => (
-            <CircleMarker
+            <MapPoint
               key={`point-${i}`}
+              label={`${["Start", "Pickup", "Delivery"][i]}: ${p.label}`}
               center={[p.lat, p.lon]}
               radius={9}
               pathOptions={{
@@ -163,7 +196,7 @@ function RouteMap({ plan, active }) {
                 <br />
                 {p.label}
               </Popup>
-            </CircleMarker>
+            </MapPoint>
           ))}
           {plan.events
             .filter(
@@ -174,8 +207,9 @@ function RouteMap({ plan, active }) {
                 e.reason !== "Delivery",
             )
             .map((e, i) => (
-              <CircleMarker
+              <MapPoint
                 key={i}
+                label={`${e.reason}: ${e.location}, ${stamp(e.start)}`}
                 center={[e.coordinates[1], e.coordinates[0]]}
                 radius={6}
                 pathOptions={{
@@ -192,7 +226,7 @@ function RouteMap({ plan, active }) {
                   <br />
                   {stamp(e.start)} · {duration(e.hours)}
                 </Popup>
-              </CircleMarker>
+              </MapPoint>
             ))}
         </>
       )}
@@ -295,7 +329,7 @@ function LogSheet({ day, plan, meta }) {
     <article className="log-sheet">
       <div className="log-heading">
         <div>
-          <span className="eyebrow">24-hour record of duty status</span>
+          <span className="log-caption">24-hour record of duty status</span>
           <h3>Driver’s daily log</h3>
         </div>
         <div>
@@ -342,7 +376,11 @@ function LogSheet({ day, plan, meta }) {
           Signature <b>Unsigned planning record</b>
         </span>
       </div>
-      <div className="grid-scroll" tabIndex="0" aria-label="Daily duty grid; scroll horizontally on small screens">
+      <div
+        className="grid-scroll"
+        tabIndex="0"
+        aria-label="Daily duty grid; scroll horizontally on small screens"
+      >
         <DutyGrid day={day} />
       </div>
       <h4>Remarks</h4>
@@ -379,7 +417,9 @@ function LogSheet({ day, plan, meta }) {
         <b>70-hour / 8-day recap</b>
         <span>Cycle used at day end: {duration(day.cycle_used_end)}</span>
         <span>Available cycle: {duration(day.cycle_available_end)}</span>
-        <small>Conservative calculation; prior daily history is not supplied.</small>
+        <small>
+          Conservative calculation; prior daily history is not supplied.
+        </small>
       </div>
       <p className="log-note">
         Planned log, not a certified ELD record. Verify actual times, locations
@@ -410,6 +450,20 @@ function App() {
     [day, setDay] = useState(0),
     [active, setActive] = useState(null);
   const [dirty, setDirty] = useState(false);
+  const tabRefs = useRef({});
+  function navigateTabs(e, index) {
+    let next;
+    if (e.key === "ArrowRight") next = (index + 1) % resultTabs.length;
+    else if (e.key === "ArrowLeft")
+      next = (index + resultTabs.length - 1) % resultTabs.length;
+    else if (e.key === "Home") next = 0;
+    else if (e.key === "End") next = resultTabs.length - 1;
+    else return;
+    e.preventDefault();
+    const key = resultTabs[next][0];
+    setView(key);
+    tabRefs.current[key].focus();
+  }
   function changePoints(i, p) {
     setPoints((prev) => prev.map((v, j) => (j === i ? p : v)));
     setDirty(true);
@@ -447,10 +501,9 @@ function App() {
   return (
     <>
       <header className="app-header">
-        <a href="#" className="wordmark">
+        <span className="wordmark">
           Duty<span>Route</span>
-          <span className="brand-rule" />
-        </a>
+        </span>
         <span className="header-detail">Trip & duty planner</span>
         <span className="header-rule">
           Property carrier · 70 hours / 8 days
@@ -458,11 +511,7 @@ function App() {
       </header>
       <main>
         <div className="workspace-title">
-          <div>
-            <span className="eyebrow">Dispatch workspace</span>
-            <h1>Plan the road ahead.</h1>
-          </div>
-          <p>One trip. Every stop. A log for each day.</p>
+          <h1>Trip planner</h1>
         </div>
         <div className="workspace">
           <aside className="trip-panel">
@@ -626,11 +675,11 @@ function App() {
             <RouteMap plan={plan} active={active} />
             {!plan ? (
               <div className="empty-state">
-                <span className="eyebrow">Ready when you are</span>
-                <h3>Your next trip starts here.</h3>
+                <h3>No trip calculated</h3>
                 <p>
-                  Choose your three locations to see the road route, rest stops
-                  and daily logs.
+                  Find and select your current location, pickup and drop-off,
+                  then calculate the trip. Or load the Chicago to Dallas
+                  example.
                 </p>
               </div>
             ) : (
@@ -686,10 +735,7 @@ function App() {
         {plan && (
           <section className="results">
             <div className="results-heading">
-              <div>
-                <span className="eyebrow">The complete trip</span>
-                <h2>From departure to delivery</h2>
-              </div>
+              <h2>Trip results</h2>
               <div className="export-buttons">
                 <button
                   onClick={() =>
@@ -719,17 +765,18 @@ function App() {
               </div>
             </div>
             <div className="tabs" role="tablist" aria-label="Trip results">
-              {[
-                ["schedule", "Stops & schedule"],
-                ["logs", "Daily log sheets"],
-                ["directions", "Route instructions"],
-              ].map(([key, text]) => (
+              {resultTabs.map(([key, text], index) => (
                 <button
                   id={`tab-${key}`}
                   key={key}
+                  ref={(element) => {
+                    tabRefs.current[key] = element;
+                  }}
                   role="tab"
                   aria-selected={view === key}
                   aria-controls={`panel-${key}`}
+                  tabIndex={view === key ? 0 : -1}
+                  onKeyDown={(e) => navigateTabs(e, index)}
                   onClick={() => setView(key)}
                 >
                   {text}
@@ -739,49 +786,54 @@ function App() {
             </div>
             {view === "schedule" && (
               <div
-                className="schedule"
                 role="tabpanel"
                 id="panel-schedule"
                 aria-labelledby="tab-schedule"
+                tabIndex="0"
               >
-                <div className="schedule-head">
-                  <span>Time / duration</span>
-                  <span>Activity</span>
-                  <span>Location</span>
-                </div>
-                {plan.events.map((e, i) => (
-                  <button
-                    key={i}
-                    className={`event-row ${e.status} ${active === e ? "active" : ""}`}
-                    onClick={() => {
-                      setActive(e);
-                      document
-                        .querySelector(".route-panel")
-                        .scrollIntoView({
-                          behavior: "smooth",
+                <p className="schedule-help" id="schedule-help">
+                  Select a stop to show its location on the map.
+                </p>
+                <div className="schedule">
+                  <div className="schedule-head">
+                    <span>Time / duration</span>
+                    <span>Activity</span>
+                    <span>Location</span>
+                  </div>
+                  {plan.events.map((e, i) => (
+                    <button
+                      key={i}
+                      className={`event-row ${e.status} ${active === e ? "active" : ""}`}
+                      aria-describedby="schedule-help"
+                      onClick={() => {
+                        setActive(e);
+                        document.querySelector(".route-panel").scrollIntoView({
+                          behavior: window.matchMedia(
+                            "(prefers-reduced-motion: reduce)",
+                          ).matches
+                            ? "instant"
+                            : "smooth",
                           block: "center",
                         });
-                    }}
-                  >
-                    <div>
-                      <b>{stamp(e.start)}</b>
-                      <small>{duration(e.hours)}</small>
-                    </div>
-                    <div>
-                      <span className="event-dot" />
-                      <b>{e.reason}</b>
-                      <small>
-                        {statusLabels[e.status]}
-                        {e.status === "driving" &&
-                          ` · ${(e.mile_end - e.mile_start).toFixed(1)} mi`}
-                      </small>
-                    </div>
-                    <div>
-                      {e.location}
-                      <small>View on map</small>
-                    </div>
-                  </button>
-                ))}
+                      }}
+                    >
+                      <div>
+                        <b>{stamp(e.start)}</b>
+                        <small>{duration(e.hours)}</small>
+                      </div>
+                      <div>
+                        <span className="event-dot" />
+                        <b>{e.reason}</b>
+                        <small>
+                          {statusLabels[e.status]}
+                          {e.status === "driving" &&
+                            ` · ${(e.mile_end - e.mile_start).toFixed(1)} mi`}
+                        </small>
+                      </div>
+                      <div>{e.location}</div>
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
             {view === "directions" && (
@@ -790,6 +842,7 @@ function App() {
                 role="tabpanel"
                 id="panel-directions"
                 aria-labelledby="tab-directions"
+                tabIndex="0"
               >
                 <p>
                   Standard road directions. Check truck restrictions before
@@ -813,7 +866,7 @@ function App() {
                                 ? "Arrive"
                                 : s.maneuver === "roundabout"
                                   ? `Take roundabout exit ${s.exit || ""}`
-                                  : `${s.maneuver.replaceAll(" ", " ")} ${s.modifier}`}{" "}
+                                  : `${s.maneuver} ${s.modifier}`}{" "}
                             {s.maneuver !== "arrive" && `on ${s.name}`}
                           </span>
                           <b>{s.miles.toFixed(1)} mi</b>
@@ -830,6 +883,7 @@ function App() {
                 role="tabpanel"
                 id="panel-logs"
                 aria-labelledby="tab-logs"
+                tabIndex="0"
               >
                 <div className="day-selector">
                   <label htmlFor="day">Log date</label>
