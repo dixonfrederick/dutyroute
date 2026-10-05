@@ -1,0 +1,12 @@
+.venv/
+node_modules/
+dist/
+staticfiles/
+__pycache__/
+.pytest_cache/
+.env
+.vercel/
+*.sqlite3
+work/
+
+.vercel
